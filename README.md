@@ -91,8 +91,8 @@
 ### 工具（模型侧）
 
 ```
-lanhu_proto_pages({ doc: "平台货运量" })
-lanhu_proto_page({ doc: "平台货运量", page: "绑定企业" })
+lanhu_proto_pages({ doc: "示例原型" })
+lanhu_proto_page({ doc: "示例原型", page: "首页" })
 ```
 
 `lanhu_proto_page` 返回的 `path` 可以直接在浏览器打开，也可以给模型做页面文案参考。
