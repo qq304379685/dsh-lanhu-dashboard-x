@@ -6,5 +6,6 @@
       config:
         baseUrl: 'https://lanhuapp.com'
         cookieFile: ''
-        defaultTeamId: 'dc64a1dc-1c85-4d27-bd24-ecea616e3eae'
-        defaultProjectId: '13c8f07d-9c4e-452f-9be8-5fbc1c7746ca'
+        # 留空 = 用账号下的第一个团队空间 / 项目；面板里选过一次会记住
+        defaultTeamId: ''
+        defaultProjectId: ''
