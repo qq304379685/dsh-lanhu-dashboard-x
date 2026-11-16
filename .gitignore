@@ -1,0 +1,8 @@
+node_modules/
+tmp/
+*.log
+cookie.txt
+selection.json
+bindings.json
+browser-profile/
+.DS_Store

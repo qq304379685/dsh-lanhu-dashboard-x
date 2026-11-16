@@ -1,0 +1,10 @@
+# dsh-lanhu-proto 装配补丁
+# cookieFile 留空则使用 profile 数据目录下的 cookie.txt（可在面板里粘贴更新）
+- insert:
+    - id: lanhu-proto
+      name: 'dsh-lanhu-proto'
+      config:
+        baseUrl: 'https://lanhuapp.com'
+        cookieFile: ''
+        defaultTeamId: 'dc64a1dc-1c85-4d27-bd24-ecea616e3eae'
+        defaultProjectId: '13c8f07d-9c4e-452f-9be8-5fbc1c7746ca'
