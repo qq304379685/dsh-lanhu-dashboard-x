@@ -18,9 +18,16 @@ window.__ModuleLoader__.load({
     /** 左侧栏顺序（插件 0 / 定时 10 / 看板 20 / 技能中心 30 / 禅道 50） */
     const PANEL_ORDER = 55
 
+    /** 右侧栏「打开蓝湖原型」的入口，apply 里拿到 sidebarRight 服务后注入；拿不到就是 null */
+    let OPEN_RIGHT = null
+
     /** 中文字典 */
     const zh = {
       'entry.label': '蓝湖原型',
+      'right.tab': '蓝湖原型',
+      'right.quick': '在右侧栏打开蓝湖原型',
+      'right.guideDesc': '浏览蓝湖原型文档页面',
+      'panel.pagesToggle': '页面列表',
       'panel.title': '蓝湖原型',
       'panel.doc': '原型文档',
       'panel.refresh': '刷新',
@@ -81,6 +88,10 @@ window.__ModuleLoader__.load({
     /** 英文字典 */
     const en = {
       'entry.label': 'Lanhu Proto',
+      'right.tab': 'Lanhu Proto',
+      'right.quick': 'Open Lanhu prototype in the right sidebar',
+      'right.guideDesc': 'Browse Lanhu prototype pages',
+      'panel.pagesToggle': 'Pages',
       'panel.title': 'Lanhu Prototype',
       'panel.doc': 'Document',
       'panel.refresh': 'Refresh',
@@ -352,7 +363,11 @@ window.__ModuleLoader__.load({
     }
 
     /** 主面板 */
-    function LanhuPanel({ t }) {
+    /**
+     * 原型浏览面板。
+     * @param {{ t: Function, compact?: boolean }} props compact=true 时按右侧栏窄宽度排版（工具条换行、页面列表变抽屉）
+     */
+    function LanhuPanel({ t, compact = false }) {
       const [status, setStatus] = useState({ kind: 'loading' })
       const [teams, setTeams] = useState([])
       const [teamId, setTeamId] = useState('')
@@ -369,6 +384,8 @@ window.__ModuleLoader__.load({
       const [cookieOpen, setCookieOpen] = useState(false)
       const [loginOpen, setLoginOpen] = useState(false)
       const [reloadSeed, setReloadSeed] = useState(0)
+      /** compact（右侧栏）模式下的页面列表抽屉开关 */
+      const [listOpen, setListOpen] = useState(false)
       /** 上次选择的团队空间/项目（由 /status 回填，优先于配置默认值） */
       const [remembered, setRemembered] = useState(null)
       const frameRef = useRef(null)
@@ -644,13 +661,26 @@ window.__ModuleLoader__.load({
             style: {
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
-              padding: '10px 14px',
+              flexWrap: compact ? 'wrap' : 'nowrap',
+              gap: compact ? 6 : 10,
+              padding: compact ? '8px 10px' : '10px 14px',
               borderBottom: '1px solid ' + C.line,
               flex: 'none',
             },
           },
-          h('div', { style: { fontSize: 13.5, fontWeight: 600, color: C.text } }, t('panel.title')),
+          compact
+            ? h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'lh-btn',
+                  title: t('panel.pagesToggle'),
+                  onClick: () => setListOpen((open) => !open),
+                  style: { flex: 'none' },
+                },
+                t('panel.pages') + ' · ' + String(pages.length),
+              )
+            : h('div', { style: { fontSize: 13.5, fontWeight: 600, color: C.text } }, t('panel.title')),
           h(
             'select',
             {
@@ -658,7 +688,7 @@ window.__ModuleLoader__.load({
               value: teamId,
               title: t('panel.team'),
               onChange: (event) => setTeamId(event.target.value),
-              style: { maxWidth: 170 },
+              style: compact ? { flex: '1 1 88px', minWidth: 0, maxWidth: 118 } : { maxWidth: 170 },
             },
             teams.length === 0 ? h('option', { value: '' }, t('panel.noteam')) : null,
             teams.map((item) => h('option', { key: item.id, value: item.id }, item.name)),
@@ -670,7 +700,7 @@ window.__ModuleLoader__.load({
               value: projectId,
               title: t('panel.project'),
               onChange: (event) => setProjectId(event.target.value),
-              style: { maxWidth: 140 },
+              style: compact ? { flex: '1 1 88px', minWidth: 0, maxWidth: 118 } : { maxWidth: 140 },
             },
             projects.length === 0 ? h('option', { value: '' }, t('panel.noproject')) : null,
             projects.map((item) => h('option', { key: item.id, value: item.id }, item.name)),
@@ -682,7 +712,7 @@ window.__ModuleLoader__.load({
               value: docId,
               title: t('panel.docs'),
               onChange: (event) => setDocId(event.target.value),
-              style: { maxWidth: 200 },
+              style: compact ? { flex: '2 1 110px', minWidth: 0 } : { maxWidth: 200 },
             },
             docs.length === 0 ? h('option', { value: '' }, t('panel.empty')) : null,
             docs.map((item) => h('option', { key: item.imageId, value: item.imageId }, item.name)),
@@ -691,23 +721,23 @@ window.__ModuleLoader__.load({
             ? h(
                 'div',
                 { style: { display: 'flex', alignItems: 'center', gap: 4 } },
-                h('button', { type: 'button', className: 'lh-btn', title: t('panel.fitWidth'), onClick: () => postToFrame({ type: 'fit-width' }) }, t('panel.fitWidth')),
-                h('button', { type: 'button', className: 'lh-btn', title: t('panel.fitPage'), onClick: () => postToFrame({ type: 'fit-page' }) }, t('panel.fitPage')),
+                compact ? null : h('button', { type: 'button', className: 'lh-btn', title: t('panel.fitWidth'), onClick: () => postToFrame({ type: 'fit-width' }) }, t('panel.fitWidth')),
+                compact ? null : h('button', { type: 'button', className: 'lh-btn', title: t('panel.fitPage'), onClick: () => postToFrame({ type: 'fit-page' }) }, t('panel.fitPage')),
                 h('button', { type: 'button', className: 'lh-btn', title: t('panel.zoomHint'), onClick: () => postToFrame({ type: 'zoom-by', factor: 1 / 1.15 }) }, '−'),
                 h('span', { style: { fontSize: 12, color: C.sub, minWidth: 38, textAlign: 'center', fontVariantNumeric: 'tabular-nums' } }, Math.round(scale * 100) + '%'),
                 h('button', { type: 'button', className: 'lh-btn', title: t('panel.zoomHint'), onClick: () => postToFrame({ type: 'zoom-by', factor: 1.15 }) }, '+'),
-                h('button', { type: 'button', className: 'lh-btn', title: t('panel.zoom100'), onClick: () => postToFrame({ type: 'scale', scale: 1 }) }, t('panel.zoom100')),
+                compact ? null : h('button', { type: 'button', className: 'lh-btn', title: t('panel.zoom100'), onClick: () => postToFrame({ type: 'scale', scale: 1 }) }, t('panel.zoom100')),
               )
             : null,
-          h('div', { style: { flex: 1 } }),
-          h('button', { type: 'button', className: 'lh-btn', onClick: () => setReloadSeed((n) => n + 1) }, t('panel.refresh')),
-          h('button', { type: 'button', className: 'lh-btn', onClick: () => setLoginOpen(true) }, t('panel.browserLogin')),
-          h('button', { type: 'button', className: 'lh-btn', onClick: () => setCookieOpen(true) }, t('panel.cookie')),
+          compact ? null : h('div', { style: { flex: 1 } }),
+          h('button', { type: 'button', className: 'lh-btn', title: t('panel.refresh'), onClick: () => setReloadSeed((n) => n + 1) }, compact ? '⟳' : t('panel.refresh')),
+          h('button', { type: 'button', className: 'lh-btn', title: t('panel.browserLogin'), onClick: () => setLoginOpen(true) }, compact ? t('panel.login') : t('panel.browserLogin')),
+          h('button', { type: 'button', className: 'lh-btn', title: t('panel.cookie'), onClick: () => setCookieOpen(true) }, t('panel.cookie')),
           frameSrc
             ? h(
                 'a',
-                { className: 'lh-btn', href: frameSrc, target: '_blank', rel: 'noreferrer', style: { textDecoration: 'none' } },
-                t('panel.openTab'),
+                { className: 'lh-btn', href: frameSrc, target: '_blank', rel: 'noreferrer', title: t('panel.openTab'), style: { textDecoration: 'none' } },
+                compact ? '↗' : t('panel.openTab'),
               )
             : null,
         ),
@@ -721,19 +751,41 @@ window.__ModuleLoader__.load({
             )
           : h(
               'div',
-              { style: { display: 'flex', flex: 1, minHeight: 0 } },
-              // 左侧页面列表
+              { style: { display: 'flex', flex: 1, minHeight: 0, position: 'relative' } },
+              // compact：页面列表浮层的遮罩，点一下就收起
+              compact && listOpen
+                ? h('div', {
+                    onClick: () => setListOpen(false),
+                    style: { position: 'absolute', inset: 0, background: 'rgba(15,23,42,.16)', zIndex: 15 },
+                  })
+                : null,
+              // 左侧页面列表（compact 时是浮层抽屉，非 compact 时固定 240px）
               h(
                 'div',
                 {
-                  style: {
-                    width: 240,
-                    flex: 'none',
-                    borderRight: '1px solid ' + C.line,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minHeight: 0,
-                  },
+                  style: compact
+                    ? {
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        width: 'min(80%, 260px)',
+                        zIndex: 20,
+                        background: C.layer1,
+                        borderRight: '1px solid ' + C.line,
+                        boxShadow: '0 10px 28px rgba(15,23,42,.22)',
+                        display: listOpen ? 'flex' : 'none',
+                        flexDirection: 'column',
+                        minHeight: 0,
+                      }
+                    : {
+                        width: 240,
+                        flex: 'none',
+                        borderRight: '1px solid ' + C.line,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        minHeight: 0,
+                      },
                 },
                 h(
                   'div',
@@ -801,9 +853,15 @@ window.__ModuleLoader__.load({
                               role: 'button',
                               tabIndex: 0,
                               'data-on': page === item.name ? '1' : undefined,
-                              onClick: () => setPage(item.name),
+                              onClick: () => {
+                                setPage(item.name)
+                                if (compact) setListOpen(false)
+                              },
                               onKeyDown: (event) => {
-                                if (event.key === 'Enter' || event.key === ' ') setPage(item.name)
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  setPage(item.name)
+                                  if (compact) setListOpen(false)
+                                }
                               },
                               style: {
                                 padding: '6px 9px 6px ' + pad + 'px',
@@ -903,6 +961,50 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** 会话右上角的蓝湖快捷按钮：点一下在右侧栏打开蓝湖原型页 */
+    function HeaderQuickAction({ t }) {
+      const [hover, setHover] = useState(false)
+      const label = t('right.quick')
+      return h(
+        'button',
+        {
+          type: 'button',
+          title: label,
+          'aria-label': label,
+          onClick: () => {
+            if (OPEN_RIGHT) {
+              OPEN_RIGHT()
+            }
+          },
+          onMouseEnter: () => setHover(true),
+          onMouseLeave: () => setHover(false),
+          style: {
+            width: 28,
+            height: 28,
+            display: 'grid',
+            placeItems: 'center',
+            padding: 0,
+            border: 'none',
+            borderRadius: 6,
+            background: hover ? 'var(--dsw-alias-bg-layer-2, rgba(0,0,0,.06))' : 'transparent',
+            color: hover ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)',
+            cursor: 'pointer',
+            flex: 'none',
+          },
+        },
+        h(LanhuIcon, { size: 16 }),
+      )
+    }
+
+    /** 右侧栏标签页正文：窄宽度，给面板开 compact 排版 */
+    function RightPaneBody({ t }) {
+      return h(
+        'div',
+        { style: { display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' } },
+        h(LanhuPanel, { t, compact: true }),
+      )
+    }
+
     return {
       inject: ['slots', 'locale'],
       apply(ctx) {
@@ -938,6 +1040,85 @@ window.__ModuleLoader__.load({
             for (const dispose of disposers) dispose()
           }
         }, 'lanhu-proto: placement')
+
+        // 右侧栏标签类型 + 会话右上角快捷按钮（参考禅道插件的接入方式）
+        ctx.effect(() => {
+          const disposers = []
+          let tabRegistry = null
+          try {
+            tabRegistry = ctx.get('sidebarRightTabs')
+          } catch (error) {
+            tabRegistry = null
+          }
+          if (tabRegistry && typeof tabRegistry.register === 'function') {
+            try {
+              disposers.push(
+                tabRegistry.register({
+                  id: 'dsh-lanhu-proto',
+                  kind: 'lanhu',
+                  multiple: false,
+                  keepMounted: true,
+                  title: () => t('right.tab'),
+                  guide: [
+                    {
+                      id: 'lanhu',
+                      order: 61,
+                      title: () => t('right.tab'),
+                      description: () => t('right.guideDesc'),
+                      icon: LanhuIcon,
+                    },
+                  ],
+                }),
+              )
+              disposers.push(
+                ctx.slots.inject('sidebar.right.pane.tab', () =>
+                  ctx.slots.register({ name: 'sidebar.right.pane.tab', key: 'dsh-lanhu-proto', locale: NS }, () =>
+                    h(RightPaneBody, { t }),
+                  ),
+                ),
+              )
+            } catch (error) {
+              // 标签类型被占用等情况下静默降级，不影响左侧栏与主区域
+            }
+          }
+          let sidebarRight = null
+          try {
+            sidebarRight = ctx.get('sidebarRight')
+          } catch (error) {
+            sidebarRight = null
+          }
+          if (sidebarRight && typeof sidebarRight.openTab === 'function') {
+            OPEN_RIGHT = () => {
+              try {
+                sidebarRight.openTab('lanhu')
+              } catch (error) {
+                /* 右侧栏不可用时忽略 */
+              }
+            }
+          }
+          try {
+            disposers.push(
+              ctx.slots.inject('conversation.session.header.utilities', () =>
+                ctx.slots.register(
+                  { name: 'conversation.session.header.utilities', id: 'lanhu', order: 45, label: () => t('right.quick') },
+                  () => h(HeaderQuickAction, { t }),
+                ),
+              ),
+            )
+          } catch (error) {
+            // 该 DSH 版本没有这个槽位时不加右上角按钮
+          }
+          return () => {
+            OPEN_RIGHT = null
+            for (const dispose of disposers) {
+              try {
+                dispose()
+              } catch (error) {
+                /* 忽略 */
+              }
+            }
+          }
+        }, 'lanhu-proto: right pane + header action')
       },
     }
   },
