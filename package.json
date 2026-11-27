@@ -1,6 +1,6 @@
 {
   "name": "dsh-lanhu-proto",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "type": "module",
   "description": "蓝湖产品原型（Axure）读取插件：路径映射代理 + 同源 iframe 面板 + 工具",
