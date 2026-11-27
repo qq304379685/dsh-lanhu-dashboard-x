@@ -1044,58 +1044,79 @@ window.__ModuleLoader__.load({
         // 右侧栏标签类型 + 会话右上角快捷按钮（参考禅道插件的接入方式）
         ctx.effect(() => {
           const disposers = []
-          let tabRegistry = null
-          try {
-            tabRegistry = ctx.get('sidebarRightTabs')
-          } catch (error) {
-            tabRegistry = null
-          }
-          if (tabRegistry && typeof tabRegistry.register === 'function') {
-            try {
-              disposers.push(
-                tabRegistry.register({
-                  id: 'dsh-lanhu-proto',
-                  kind: 'lanhu',
-                  multiple: false,
-                  keepMounted: true,
-                  title: () => t('right.tab'),
-                  guide: [
-                    {
-                      id: 'lanhu',
-                      order: 61,
-                      title: () => t('right.tab'),
-                      description: () => t('right.guideDesc'),
-                      icon: LanhuIcon,
-                    },
-                  ],
-                }),
-              )
-              disposers.push(
-                ctx.slots.inject('sidebar.right.pane.tab', () =>
-                  ctx.slots.register({ name: 'sidebar.right.pane.tab', key: 'dsh-lanhu-proto', locale: NS }, () =>
-                    h(RightPaneBody, { t }),
-                  ),
-                ),
-              )
-            } catch (error) {
-              // 标签类型被占用等情况下静默降级，不影响左侧栏与主区域
+          let openRight = null
+          const release = () => {
+            if (OPEN_RIGHT === openRight) {
+              OPEN_RIGHT = null
             }
           }
-          let sidebarRight = null
-          try {
-            sidebarRight = ctx.get('sidebarRight')
-          } catch (error) {
-            sidebarRight = null
-          }
-          if (sidebarRight && typeof sidebarRight.openTab === 'function') {
-            OPEN_RIGHT = () => {
-              try {
-                sidebarRight.openTab('lanhu')
-              } catch (error) {
-                /* 右侧栏不可用时忽略 */
+
+          // sidebarRight / sidebarRightTabs 由 ui-sidebar-right 在自己的 apply 里 provide，
+          // 本插件激活时它的 fiber 往往还没 active：一次性 ctx.get()（严格模式）只会拿到
+          // undefined —— 页签类型压根不注册、右上角按钮点了也没反应。所以用 ctx.inject
+          // 等服务就绪后再注册；老宿主没有这两个服务时回调不触发，左侧栏与主区域照常。
+          disposers.push(
+            ctx.inject(['sidebarRightTabs', 'sidebarRight'], (injected) => {
+              const owned = []
+              const tabRegistry = injected.get('sidebarRightTabs')
+              const sidebarRight = injected.get('sidebarRight')
+
+              if (sidebarRight && typeof sidebarRight.openTab === 'function') {
+                openRight = () => {
+                  try {
+                    sidebarRight.openTab('lanhu')
+                  } catch (error) {
+                    /* 右侧栏不可用时忽略 */
+                  }
+                }
+                OPEN_RIGHT = openRight
               }
-            }
-          }
+
+              if (tabRegistry && typeof tabRegistry.register === 'function') {
+                try {
+                  owned.push(
+                    tabRegistry.register({
+                      id: 'dsh-lanhu-proto',
+                      kind: 'lanhu',
+                      multiple: false,
+                      keepMounted: true,
+                      title: () => t('right.tab'),
+                      guide: [
+                        {
+                          id: 'lanhu',
+                          order: 61,
+                          title: () => t('right.tab'),
+                          description: () => t('right.guideDesc'),
+                          icon: LanhuIcon,
+                        },
+                      ],
+                    }),
+                  )
+                  owned.push(
+                    ctx.slots.inject('sidebar.right.pane.tab', () =>
+                      ctx.slots.register({ name: 'sidebar.right.pane.tab', key: 'dsh-lanhu-proto', locale: NS }, () =>
+                        h(RightPaneBody, { t }),
+                      ),
+                    ),
+                  )
+                } catch (error) {
+                  // 标签类型被占用等情况下静默降级，不影响左侧栏与主区域
+                }
+              }
+
+              return () => {
+                for (const dispose of owned) {
+                  try {
+                    dispose()
+                  } catch (error) {
+                    /* 忽略 */
+                  }
+                }
+                release()
+              }
+            }),
+          )
+
           try {
             disposers.push(
               ctx.slots.inject('conversation.session.header.utilities', () =>
@@ -1108,8 +1129,8 @@ window.__ModuleLoader__.load({
           } catch (error) {
             // 该 DSH 版本没有这个槽位时不加右上角按钮
           }
+
           return () => {
-            OPEN_RIGHT = null
             for (const dispose of disposers) {
               try {
                 dispose()
@@ -1117,6 +1138,7 @@ window.__ModuleLoader__.load({
                 /* 忽略 */
               }
             }
+            release()
           }
         }, 'lanhu-proto: right pane + header action')
       },
